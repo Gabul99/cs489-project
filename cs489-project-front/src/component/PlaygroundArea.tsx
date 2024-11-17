@@ -1,7 +1,8 @@
 import { IconButton, TextField } from "@mui/material";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import styled from "styled-components";
 import SendIcon from "@mui/icons-material/Send";
+import SuggestItem from "./SuggestItem";
 
 const Container = styled.div`
   width: 480px;
@@ -33,6 +34,13 @@ const SendButtonRow = styled.div`
 
 const PlaygroundArea = () => {
   const [targetText, setTargetText] = useState<string>("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selectSuggestion = (suggestion: string) => {
+    setTargetText(suggestion);
+    inputRef.current?.focus();
+  };
+
   return (
     <Container>
       <Title>Playground</Title>
@@ -41,6 +49,7 @@ const PlaygroundArea = () => {
         can detect it!
       </Desc>
       <TextField
+        inputRef={inputRef}
         placeholder="Write your target content"
         multiline
         fullWidth
@@ -56,6 +65,15 @@ const PlaygroundArea = () => {
           <SendIcon />
         </IconButton>
       </SendButtonRow>
+      <Title>Suggestions</Title>
+      <SuggestItem
+        suggestion="Suggestion 1"
+        onClick={() => selectSuggestion("Suggestion 1")}
+      />
+      <SuggestItem
+        suggestion="Suggestion 2"
+        onClick={() => selectSuggestion("Suggestion 2")}
+      />
     </Container>
   );
 };
