@@ -1,8 +1,9 @@
-import { IconButton, TextField } from "@mui/material";
+import { IconButton, TextField, Typography } from "@mui/material";
 import { useRef, useState } from "react";
 import styled from "styled-components";
 import SendIcon from "@mui/icons-material/Send";
 import SuggestItem from "./SuggestItem";
+import OpenAI from "openai";
 
 const Container = styled.div`
   width: 480px;
@@ -32,13 +33,46 @@ const SendButtonRow = styled.div`
   justify-content: end;
 `;
 
+const ResponseContainer = styled.div`
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  background-color: #f9f9f9;
+`;
+
 const PlaygroundArea = () => {
   const [targetText, setTargetText] = useState<string>("");
+  const [responseText, setResponseText] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const selectSuggestion = (suggestion: string) => {
     setTargetText(suggestion);
     inputRef.current?.focus();
+  };
+
+  const handleSend = async () => {
+    setLoading(true);
+    setResponseText(null);
+
+    try {
+      const openai = new OpenAI({
+        apiKey: process.env.REACT_APP_OPENAI_API_KEY, // 환경변수로 API 키 설정
+      });
+
+      const chatCompletion = await openai.chat.completions.create({
+        messages: [{ role: "user", content: targetText }],
+        model: "gpt-4o-mini",
+      });
+
+      setResponseText(chatCompletion.choices[0]?.message?.content || "No response");
+    } catch (error) {
+      console.error("Error with OpenAI API:", error);
+      setResponseText("Error: Could not fetch response.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -61,10 +95,22 @@ const PlaygroundArea = () => {
         sx={{ "& ::placeholder": { fontSize: "small" } }}
       />
       <SendButtonRow>
-        <IconButton color={"primary"} disabled={targetText.length === 0}>
+        <IconButton
+          color={"primary"}
+          disabled={targetText.length === 0 || loading}
+          onClick={handleSend}
+        >
           <SendIcon />
         </IconButton>
       </SendButtonRow>
+      {responseText && (
+        <ResponseContainer>
+          <Typography variant="subtitle1" sx={{ marginBottom: "8px" }}>
+            GPT Response:
+          </Typography>
+          <Typography variant="body2">{responseText}</Typography>
+        </ResponseContainer>
+      )}
       <Title>Suggestions</Title>
       <SuggestItem
         suggestion="Suggestion 1"

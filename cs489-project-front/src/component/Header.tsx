@@ -1,4 +1,6 @@
+import React from "react";
 import styled from "styled-components";
+import { useNavigate } from "react-router-dom";
 
 const Container = styled.div`
   width: 100%;
@@ -7,8 +9,7 @@ const Container = styled.div`
   padding: 16px 32px;
   box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.12);
   display: flex;
-  flex-direction: row;
-  flex-shrink: 0;
+  justify-content: space-between;
   align-items: center;
 
   font-size: 18px;
@@ -16,8 +17,34 @@ const Container = styled.div`
   color: rgba(0, 0, 0, 0.8);
 `;
 
-const Header = () => {
-  return <Container>👍 Cleanity</Container>;
+const Button = styled.button`
+  padding: 8px 16px;
+  font-size: 16px;
+  font-weight: 500;
+  color: white;
+  background-color: #007bff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+
+  &:hover {
+    background-color: #0056b3;
+  }
+`;
+
+const Header: React.FC = () => {
+  const navigate = useNavigate();
+
+  const handleNavigate = () => {
+    navigate("/chat");
+  };
+
+  return (
+    <Container>
+      👍 Cleanity
+      <Button onClick={handleNavigate}>Go to Chat</Button>
+    </Container>
+  );
 };
 
 export default Header;
