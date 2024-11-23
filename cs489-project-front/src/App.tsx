@@ -1,6 +1,11 @@
 import React from "react";
 import styled from "styled-components";
-import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useNavigate,
+} from "react-router-dom";
 import Header from "./component/Header";
 import RuleArea from "./component/RuleArea";
 import PlaygroundArea from "./component/PlaygroundArea";
@@ -57,7 +62,6 @@ const MainPage: React.FC = () => {
         <RuleArea />
         <PlaygroundArea />
       </Contents>
-      <NavigateButton onClick={handleNavigate}>Go to Chat</NavigateButton>
     </Container>
   );
 };

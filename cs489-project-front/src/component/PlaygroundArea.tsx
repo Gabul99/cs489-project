@@ -1,9 +1,16 @@
-import { IconButton, TextField, Typography } from "@mui/material";
+import {
+  CircularProgress,
+  IconButton,
+  TextField,
+  Typography,
+} from "@mui/material";
 import { useRef, useState } from "react";
 import styled from "styled-components";
 import SendIcon from "@mui/icons-material/Send";
 import SuggestItem from "./SuggestItem";
 import OpenAI from "openai";
+import LLMRequestManager from "../network/LLMRequestManager";
+import { TextBlock } from "@anthropic-ai/sdk/resources";
 
 const Container = styled.div`
   width: 480px;
@@ -45,6 +52,7 @@ const PlaygroundArea = () => {
   const [targetText, setTargetText] = useState<string>("");
   const [responseText, setResponseText] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const selectSuggestion = (suggestion: string) => {
@@ -57,16 +65,13 @@ const PlaygroundArea = () => {
     setResponseText(null);
 
     try {
-      const openai = new OpenAI({
-        apiKey: process.env.REACT_APP_OPENAI_API_KEY, // 환경변수로 API 키 설정
-      });
-
-      const chatCompletion = await openai.chat.completions.create({
-        messages: [{ role: "user", content: targetText }],
-        model: "gpt-4o-mini",
-      });
-
-      setResponseText(chatCompletion.choices[0]?.message?.content || "No response");
+      const response = await LLMRequestManager.shared.requestAnthropicAPI(
+        "Please tell anything", // We will replace this to real system prompt
+        targetText,
+        0.1
+      );
+      const text = (response?.content[0] as TextBlock).text;
+      setFeedback(text);
     } catch (error) {
       console.error("Error with OpenAI API:", error);
       setResponseText("Error: Could not fetch response.");
@@ -91,17 +96,22 @@ const PlaygroundArea = () => {
         maxRows={8}
         size="small"
         value={targetText}
+        error={feedback !== null}
+        helperText={feedback}
         onChange={(e) => setTargetText(e.target.value)}
         sx={{ "& ::placeholder": { fontSize: "small" } }}
       />
       <SendButtonRow>
-        <IconButton
-          color={"primary"}
-          disabled={targetText.length === 0 || loading}
-          onClick={handleSend}
-        >
-          <SendIcon />
-        </IconButton>
+        {loading && <CircularProgress size={24} />}
+        {!loading && (
+          <IconButton
+            color={"primary"}
+            disabled={targetText.length === 0 || loading}
+            onClick={handleSend}
+          >
+            <SendIcon />
+          </IconButton>
+        )}
       </SendButtonRow>
       {responseText && (
         <ResponseContainer>
