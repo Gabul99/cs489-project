@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
+import LLMRequestManager from "../network/LLMRequestManager";
+import { TextBlock } from "@anthropic-ai/sdk/resources";
 
 const ChatContainer = styled.div`
   width: 100vw;
@@ -23,25 +25,31 @@ const MessageList = styled.div`
   box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
   padding: 16px;
   display: flex;
-  flex-direction: column; /* 메시지가 세로로 나열되도록 설정 */
+  flex-direction: column;
 `;
 
 const Message = styled.div`
-  align-self: flex-end; /* 메시지를 오른쪽으로 정렬 */
+  align-self: flex-end;
   margin: 8px 0;
   padding: 8px 12px;
   background-color: #007bff;
   color: white;
   border-radius: 8px;
-  word-break: break-word; /* 긴 단어 줄바꿈 */
-  max-width: 70%; /* 최대 너비 */
+  word-break: break-word;
+  max-width: 70%;
 `;
 
 const InputContainer = styled.div`
   display: flex;
+  flex-direction: column;
   width: 100%;
   max-width: 600px;
   margin: 0 16px;
+`;
+
+const InputRow = styled.div`
+  display: flex;
+  align-items: center;
 `;
 
 const Input = styled.input`
@@ -67,6 +75,54 @@ const SendButton = styled.button`
   }
 `;
 
+const WarningContainer = styled.div`
+  margin-top: 8px;
+  padding: 12px;
+  background-color: #fff3cd;
+  border: 1px solid #ffeeba;
+  border-radius: 4px;
+`;
+
+const WarningMessage = styled.div`
+  color: #856404;
+  font-size: 14px;
+  margin-bottom: 8px;
+`;
+
+const WarningActions = styled.div`
+  display: flex;
+  gap: 8px;
+`;
+
+const ActionButton = styled.button`
+  padding: 8px 16px;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+`;
+
+const ConfirmButton = styled(ActionButton)`
+  background-color: #dc3545;
+  &:hover {
+    background-color: #c82333;
+  }
+`;
+
+const CancelButton = styled(ActionButton)`
+  background-color: #6c757d;
+  &:hover {
+    background-color: #5a6268;
+  }
+`;
+
+const AlternativeButton = styled(ActionButton)`
+  background-color: #28a745;
+  &:hover {
+    background-color: #218838;
+  }
+`;
+
 const NavigateButton = styled.button`
   position: fixed;
   bottom: 16px;
@@ -89,24 +145,75 @@ const NavigateButton = styled.button`
 const Chat: React.FC = () => {
   const [messages, setMessages] = useState<string[]>([]);
   const [input, setInput] = useState<string>("");
+  const [warning, setWarning] = useState<string>("");
+  const [pendingMessage, setPendingMessage] = useState<string>("");
+  const [alternative, setAlternative] = useState<string>("");
   const navigate = useNavigate();
 
-  const sendMessage = () => {
+  const fetchWarningFromLLM = async (message: string) => {
+    try {
+      const response = await LLMRequestManager.shared.requestAnthropicAPI(
+        "You are a text evaluator. Provide warnings if the following message violates any guidelines.",
+        message,
+        0.1
+      );
+      const text = (response?.content[0] as TextBlock).text;
+      setWarning(text);
+    } catch (error) {
+      console.error("Error with Claude API:", error);
+      setWarning("Error: Could not fetch response.");
+    }
+  };
+
+  const fetchAlternativeFromLLM = async (message: string) => {
+    try {
+      const response = await LLMRequestManager.shared.requestAnthropicAPI(
+        "You are responsible for editing the user's message. Edit the user's message so that it conforms to the guidelines.",
+        message,
+        0.1
+      );
+      const text = (response?.content[0] as TextBlock).text;
+      setAlternative(text);
+    } catch (error) {
+      console.error("Error with Claude API:", error);
+      setAlternative("Error: Could not fetch response.");
+    }
+  };
+
+  const handleInitialSend = async () => {
     if (input.trim()) {
-      setMessages((prevMessages) => [...prevMessages, input]);
+      await fetchWarningFromLLM(input.trim());
+      await fetchAlternativeFromLLM(input.trim());
+      
+      setPendingMessage(input.trim());
       setInput("");
     }
   };
-
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
-      sendMessage();
+      handleInitialSend();
     }
   };
 
-  const handleNavigateBack = () => {
-    navigate("/");
+
+  const handleConfirmedSend = () => {
+    setMessages((prevMessages) => [...prevMessages, pendingMessage]);
+    setPendingMessage("");
+    setWarning("");
   };
+
+  const handleCancelSend = () => {
+    setPendingMessage("");
+    setWarning("");
+    setInput(pendingMessage);
+  };
+
+  const handleSelectAlternative = () => {
+    setMessages((prevMessages) => [...prevMessages, alternative]);
+    setPendingMessage("");
+    setWarning("");
+  };
+  
 
   return (
     <ChatContainer>
@@ -116,15 +223,41 @@ const Chat: React.FC = () => {
         ))}
       </MessageList>
       <InputContainer>
-        <Input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyPress={handleKeyPress}
-          placeholder="Type a message"
-        />
-        <SendButton onClick={sendMessage}>Send</SendButton>
+        <InputRow>
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="Type a message"
+          />
+          <SendButton onClick={handleInitialSend}>Send</SendButton>
+        </InputRow>
+        {warning && pendingMessage && (
+          <WarningContainer>
+            <WarningMessage>
+              {pendingMessage}
+              <br />
+              {"Warning: "}
+              {warning}
+              <br />
+              {"Alternative: "}
+              {alternative}
+            </WarningMessage>
+            <WarningActions>
+              <ConfirmButton onClick={handleConfirmedSend}>
+                Send Anyway
+              </ConfirmButton>
+              <AlternativeButton onClick={handleSelectAlternative}>
+                Select Alternative
+              </AlternativeButton>
+              <CancelButton onClick={handleCancelSend}>
+                Cancel
+              </CancelButton>
+            </WarningActions>
+          </WarningContainer>
+        )}
       </InputContainer>
-      <NavigateButton onClick={handleNavigateBack}>Go to Rule</NavigateButton>
+      <NavigateButton onClick={() => navigate("/")}>Go to Rule</NavigateButton>
     </ChatContainer>
   );
 };
