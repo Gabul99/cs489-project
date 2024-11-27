@@ -11,6 +11,8 @@ import SuggestItem from "./SuggestItem";
 import OpenAI from "openai";
 import LLMRequestManager from "../network/LLMRequestManager";
 import { TextBlock } from "@anthropic-ai/sdk/resources";
+import { useRecoilValue } from "recoil";
+import { ruleListAtom } from "../store/ruleStore";
 
 const Container = styled.div`
   width: 480px;
@@ -54,6 +56,10 @@ const PlaygroundArea = () => {
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const ruleList = useRecoilValue(ruleListAtom);
+  const rulesPrompt = ruleList.length > 0 
+  ? `Specific guidelines to check:\n${ruleList.map((rule, index) => `${index + 1}. ${rule.rule || rule.example}`).join('\n')}\n\n`
+  : '';
 
   const selectSuggestion = (suggestion: string) => {
     setTargetText(suggestion);
@@ -66,7 +72,7 @@ const PlaygroundArea = () => {
 
     try {
       const response = await LLMRequestManager.shared.requestAnthropicAPI(
-        "Please tell anything", // We will replace this to real system prompt
+        `You are a text evaluator. ${rulesPrompt}Provide warnings if the following message violates any of the above guidelines.`, // We will replace this to real system prompt
         targetText,
         0.1
       );
