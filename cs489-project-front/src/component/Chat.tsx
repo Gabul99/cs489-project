@@ -3,6 +3,8 @@ import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import LLMRequestManager from "../network/LLMRequestManager";
 import { TextBlock } from "@anthropic-ai/sdk/resources";
+import { useRecoilValue } from "recoil";
+import { ruleListAtom } from "../store/ruleStore";
 
 const ChatContainer = styled.div`
   width: 100vw;
@@ -165,14 +167,20 @@ const Chat: React.FC = () => {
   const [alternative, setAlternative] = useState<string>("");
   const [LLMresponse, setLLMResponse] = useState<string>("");
   const navigate = useNavigate();
+  const ruleList = useRecoilValue(ruleListAtom);
+  const rulesPrompt = ruleList.length > 0 
+  ? `Specific guidelines to check:\n${ruleList.map((rule, index) => `${index + 1}. ${rule.rule || rule.example}`).join('\n')}\n\n`
+  : '';
 
   const fetchWarningFromLLM = async (message: string) => {
     try {
+       
       const response = await LLMRequestManager.shared.requestAnthropicAPI(
-        "You are a text evaluator. Provide warnings if the following message violates any guidelines.",
+        `You are a text evaluator. ${rulesPrompt}Provide warnings if the following message violates any of the above guidelines.`,
         message,
         0.1
       );
+
       const text = (response?.content[0] as TextBlock).text;
       setWarning(text);
     } catch (error) {
@@ -183,8 +191,9 @@ const Chat: React.FC = () => {
 
   const fetchAlternativeFromLLM = async (message: string) => {
     try {
+
       const response = await LLMRequestManager.shared.requestAnthropicAPI(
-        "You are responsible for editing the user's message. Edit the user's message so that it conforms to the guidelines.",
+        `${rulesPrompt} You are responsible for editing the user's message. Edit the user's message so that it conforms to the guidelines.`,
         message,
         0.1
       );
