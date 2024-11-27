@@ -37,6 +37,21 @@ const Message = styled.div`
   border-radius: 8px;
   word-break: break-word;
   max-width: 70%;
+  margin-left: auto;
+
+`;
+
+const LLMResponseContainer = styled.div`
+  align-self: flex-end;
+  margin: 8px 0;
+  padding: 8px 12px;
+  background-color: #007bff;
+  color: white;
+  border-radius: 8px;
+  word-break: break-word;
+  max-width: 70%;
+  margin-right: auto;
+
 `;
 
 const InputContainer = styled.div`
@@ -148,6 +163,7 @@ const Chat: React.FC = () => {
   const [warning, setWarning] = useState<string>("");
   const [pendingMessage, setPendingMessage] = useState<string>("");
   const [alternative, setAlternative] = useState<string>("");
+  const [LLMresponse, setLLMResponse] = useState<string>("");
   const navigate = useNavigate();
 
   const fetchWarningFromLLM = async (message: string) => {
@@ -180,24 +196,39 @@ const Chat: React.FC = () => {
     }
   };
 
+  const fetchResponseFromLLM = async (message: string) => {
+    try {
+      const response = await LLMRequestManager.shared.requestAnthropicAPI(
+        "You are an assistant. Respond thoughtfully to the following message.",
+        message,
+        0.1
+      );
+      const text = (response?.content[0] as TextBlock).text;
+      setLLMResponse(text);
+    } catch (error) {
+      console.error("Error with Claude API:", error);
+      setLLMResponse("Error: Could not fetch response.");
+    }
+  };
+
   const handleInitialSend = async () => {
     if (input.trim()) {
       await fetchWarningFromLLM(input.trim());
       await fetchAlternativeFromLLM(input.trim());
-      
+      await fetchResponseFromLLM(input.trim());
       setPendingMessage(input.trim());
       setInput("");
     }
   };
+
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       handleInitialSend();
     }
   };
 
-
   const handleConfirmedSend = () => {
-    setMessages((prevMessages) => [...prevMessages, pendingMessage]);
+    setMessages((prevMessages) => [...prevMessages, pendingMessage, LLMresponse]);
     setPendingMessage("");
     setWarning("");
   };
@@ -209,17 +240,22 @@ const Chat: React.FC = () => {
   };
 
   const handleSelectAlternative = () => {
-    setMessages((prevMessages) => [...prevMessages, alternative]);
+    setMessages((prevMessages) => [...prevMessages, alternative, LLMresponse]);
     setPendingMessage("");
     setWarning("");
   };
   
-
   return (
     <ChatContainer>
       <MessageList>
         {messages.map((msg, index) => (
-          <Message key={index}>{msg}</Message>
+          <div key={index}>
+            {index % 2 === 0 ? ( // 짝수: 사용자 메시지, 홀수: LLM 응답
+              <Message>{msg}</Message>
+            ) : (
+              <LLMResponseContainer>{msg}</LLMResponseContainer>
+            )}
+          </div>
         ))}
       </MessageList>
       <InputContainer>
