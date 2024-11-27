@@ -81,9 +81,9 @@ const RuleItem = ({ rule, idx, onChange, onDelete }: Props) => {
             "& ::placeholder": { fontSize: "small" },
           }}
         />
-        <IconButton disabled={rule.rule === ""} onClick={() => {}}>
+        {/* <IconButton disabled={rule.rule === ""} onClick={() => {}}>
           <AutoFixHighIcon />
-        </IconButton>
+        </IconButton> */}
       </Row>
     </Container>
   );

@@ -2,9 +2,16 @@ import { useRecoilState } from "recoil";
 import styled from "styled-components";
 import { ruleListAtom } from "../store/ruleStore";
 import { Rule } from "../model/Rule";
-import { Button } from "@mui/material";
+import { Button, CircularProgress } from "@mui/material";
 import { v4 } from "uuid";
 import RuleItem from "./RuleItem";
+import SuggestItem from "./SuggestItem";
+import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
+import LLMRequestManager from "../network/LLMRequestManager";
+import { RULE_REFINE_PROMPT } from "../prompts";
+import { useState } from "react";
+import { ContentBlock, TextBlock } from "@anthropic-ai/sdk/resources";
+import { TextContentBlock } from "openai/resources/beta/threads/messages";
 
 const Container = styled.div`
   width: 480px;
@@ -35,8 +42,15 @@ const ListContainer = styled.div`
   padding: 8px 0;
 `;
 
+const PresetTitle = styled.h3`
+  color: rgba(0, 0, 0, 0.8);
+  font-size: 14px;
+  margin: 0;
+`;
+
 const RuleArea = () => {
   const [ruleList, setRuleList] = useRecoilState(ruleListAtom);
+  const [isLoading, setLoading] = useState(false);
 
   const handleAddRule = () => {
     setRuleList((prev) => [
@@ -58,6 +72,27 @@ const RuleArea = () => {
     );
   };
 
+  const handleRefine = async () => {
+    const refinePrompt = RULE_REFINE_PROMPT;
+    setLoading(true);
+    const response = await LLMRequestManager.shared.requestAnthropicAPI(
+      refinePrompt,
+      JSON.stringify(ruleList),
+      0.5
+    );
+    const content = response?.content[0] as TextBlock;
+    setLoading(false);
+    if (!content) return;
+    const newRules = JSON.parse(`${content.text}`).map((t: string) => {
+      return {
+        id: t,
+        rule: t,
+        example: "",
+      };
+    });
+    setRuleList(newRules);
+  };
+
   const deleteRule = (rule: Rule) => {
     setRuleList(ruleList.filter((r) => r.id !== rule.id));
   };
@@ -69,7 +104,33 @@ const RuleArea = () => {
         Please write your own rules for your community! You can describe your
         rule with natural language and also add example for violation case
       </Desc>
+      {ruleList.length === 0 && (
+        <>
+          <PresetTitle>Presets</PresetTitle>
+          <SuggestItem suggestion="Preset 1" onClick={() => {}} />
+          <SuggestItem suggestion="Preset 2" onClick={() => {}} />
+          <Desc>... or start with your own rules with below button!</Desc>
+        </>
+      )}
       <ListContainer>
+        {ruleList.length > 0 && !isLoading && (
+          <div style={{ display: "flex", justifyContent: "end" }}>
+            <Button
+              variant="outlined"
+              startIcon={<AutoFixHighIcon />}
+              size="small"
+              onClick={handleRefine}
+              sx={{ width: "fit-content", textTransform: "none" }}
+            >
+              Refine Rule
+            </Button>
+          </div>
+        )}
+        {ruleList.length > 0 && isLoading && (
+          <div style={{ display: "flex", justifyContent: "end" }}>
+            <CircularProgress size={20} />
+          </div>
+        )}
         {ruleList.map((r, idx) => (
           <RuleItem
             rule={r}

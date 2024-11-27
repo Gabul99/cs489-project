@@ -13,6 +13,8 @@ import LLMRequestManager from "../network/LLMRequestManager";
 import { TextBlock } from "@anthropic-ai/sdk/resources";
 import { useRecoilValue } from "recoil";
 import { ruleListAtom } from "../store/ruleStore";
+import { RULE_EVALUATE_SUGGEST_PROMPT } from "../prompts";
+import { Evaluation } from "../model/Evaluation";
 
 const Container = styled.div`
   width: 480px;
@@ -55,31 +57,50 @@ const PlaygroundArea = () => {
   const [responseText, setResponseText] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [good, setGood] = useState<boolean>(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const ruleList = useRecoilValue(ruleListAtom);
-  const rulesPrompt = ruleList.length > 0 
-  ? `Specific guidelines to check:\n${ruleList.map((rule, index) => `${index + 1}. ${rule.rule || rule.example}`).join('\n')}\n\n`
-  : '';
 
   const selectSuggestion = (suggestion: string) => {
     setTargetText(suggestion);
+    setSuggestions([]);
+    setFeedback(null);
     inputRef.current?.focus();
   };
 
   const handleSend = async () => {
     setLoading(true);
     setResponseText(null);
+    setSuggestions([]);
+    setFeedback(null);
+    setGood(false);
+
+    const userPrompt = `Rules:\n${ruleList
+      .map(
+        (rule, index) =>
+          `${index + 1}. ${rule.rule} ${
+            rule.example !== "" ? `Example: ${rule.example}` : ""
+          }`
+      )
+      .join("\n")}\n\n Input:\n${targetText}`;
 
     try {
       const response = await LLMRequestManager.shared.requestAnthropicAPI(
-        `You are a text evaluator. ${rulesPrompt}Provide warnings if the following message violates any of the above guidelines.`, // We will replace this to real system prompt
-        targetText,
+        RULE_EVALUATE_SUGGEST_PROMPT,
+        userPrompt,
         0.1
       );
       const text = (response?.content[0] as TextBlock).text;
-      setFeedback(text);
+      const evaluation: Evaluation = JSON.parse(text);
+      if (evaluation.reason !== "") {
+        setFeedback(evaluation.reason);
+        setSuggestions(evaluation.suggestions);
+      } else {
+        setGood(true);
+      }
     } catch (error) {
-      console.error("Error with OpenAI API:", error);
+      console.error("Error with API:", error);
       setResponseText("Error: Could not fetch response.");
     } finally {
       setLoading(false);
@@ -103,8 +124,11 @@ const PlaygroundArea = () => {
         size="small"
         value={targetText}
         error={feedback !== null}
-        helperText={feedback}
-        onChange={(e) => setTargetText(e.target.value)}
+        helperText={good ? "Looks good!" : feedback}
+        onChange={(e) => {
+          setTargetText(e.target.value);
+          if (good) setGood(false);
+        }}
         sx={{ "& ::placeholder": { fontSize: "small" } }}
       />
       <SendButtonRow>
@@ -127,15 +151,16 @@ const PlaygroundArea = () => {
           <Typography variant="body2">{responseText}</Typography>
         </ResponseContainer>
       )}
-      <Title>Suggestions</Title>
-      <SuggestItem
-        suggestion="Suggestion 1"
-        onClick={() => selectSuggestion("Suggestion 1")}
-      />
-      <SuggestItem
-        suggestion="Suggestion 2"
-        onClick={() => selectSuggestion("Suggestion 2")}
-      />
+      {suggestions.length > 0 && (
+        <>
+          <Title>Suggestions</Title>
+          {suggestions.map((s) => {
+            return (
+              <SuggestItem suggestion={s} onClick={() => selectSuggestion(s)} />
+            );
+          })}
+        </>
+      )}
     </Container>
   );
 };

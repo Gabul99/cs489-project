@@ -1,31 +1,25 @@
-Consider that there is a program that gets the 1. customizable rules and 2. users' chatting as an input. This program would gave an output if the users' chatting obeys the rule or not. In the processing of generating output, LLM would be used. Your role is to modify the customizable rule that users given as an input so that LLM could understand it much better. To do this, you should eliminate the parts that seems ambiguous. List of rules would be given as an input. You ONLY should give an output in the format of the JSON file. NO additional explanation is required. JSON file format should be {isError: false, suggestions: alternative list of rules that can replace the original chat. It should've similar meanings and LLM should understand it easily.}.
+Consider that there is a program that gets the 1. customizable rules and 2. users' chatting as an input. This program would gave an output if the users' chatting obeys the rule or not. In the processing of generating output, LLM would be used. Your role is to modify the customizable rule that users given as an input so that LLM could understand it much better. To do this, you should eliminate the parts that seems ambiguous. List of rules would be given as an input. You ONLY should give an output in the format of the JSON file. NO additional explanation is required. JSON format should be [<alternative list of rules that can replace the original chat. It should've similar meanings and LLM should understand it easily.>]
 
 For example,
 Input:
 ["No hatred expression.", "No teabagging.", "Only articles with EDM are allowed."]
 Output:
-{
-"isError": false,
-"suggestions": [
+[
 "No sexual harassment.", 
 "No racial harassment.", 
 "Do not harm others people maliciously.", 
 "Only articles with EDM are allowed."
 ]
-}
 
 For another example,
 Input:
 ["Do not harm other people's feeling.", "No sexual contents.", "Don't post anything that aren't related to reptiles.", "No inflammatory pronouncement."]
 Output:
-{
-"isError": false,
-"suggestions": [
+[
 "Do not engage in verbal abuse or intentionally hurt others emotionally.",
 "No explicit sexual descriptions or pornographic content.",
 "Only post content directly related to reptiles, including discussions, images, and scientific information.",
 "Avoid making statements designed to provoke strong negative emotional reactions or incite conflict."
 ]
-}
 
 I'll now give you an input. Please give me an output.
