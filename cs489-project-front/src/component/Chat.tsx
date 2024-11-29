@@ -165,7 +165,6 @@ const Chat: React.FC = () => {
   const [warning, setWarning] = useState<string>("");
   const [pendingMessage, setPendingMessage] = useState<string>("");
   const [alternative, setAlternative] = useState<string>("");
-  const [LLMresponse, setLLMResponse] = useState<string>("");
   const navigate = useNavigate();
   const ruleList = useRecoilValue(ruleListAtom);
   const rulesPrompt = ruleList.length > 0 
@@ -176,7 +175,7 @@ const Chat: React.FC = () => {
     try {
        
       const response = await LLMRequestManager.shared.requestAnthropicAPI(
-        `You are a text evaluator. ${rulesPrompt}Provide warnings if the following message violates any of the above guidelines.`,
+        `You are a text evaluator. ${rulesPrompt}Provide warnings if the following message violates any of the above guidelines. If the content doesn't break any rules, just say None.`,
         message,
         0.1
       );
@@ -193,7 +192,7 @@ const Chat: React.FC = () => {
     try {
 
       const response = await LLMRequestManager.shared.requestAnthropicAPI(
-        `${rulesPrompt} You are responsible for editing the user's message. Edit the user's message so that it conforms to the guidelines.`,
+        `${rulesPrompt} You are responsible for editing the user's message. Edit the user's message so that it conforms to the guidelines. Don't leave any other comments, just print the modified message. If the content does not violate the rules, just present the original text.`,
         message,
         0.1
       );
@@ -213,10 +212,10 @@ const Chat: React.FC = () => {
         0.1
       );
       const text = (response?.content[0] as TextBlock).text;
-      setLLMResponse(text);
+      return text
     } catch (error) {
       console.error("Error with Claude API:", error);
-      setLLMResponse("Error: Could not fetch response.");
+      return "Error: Could not fetch response."
     }
   };
 
@@ -224,7 +223,6 @@ const Chat: React.FC = () => {
     if (input.trim()) {
       await fetchWarningFromLLM(input.trim());
       await fetchAlternativeFromLLM(input.trim());
-      await fetchResponseFromLLM(input.trim());
       setPendingMessage(input.trim());
       setInput("");
     }
@@ -236,8 +234,19 @@ const Chat: React.FC = () => {
     }
   };
 
-  const handleConfirmedSend = () => {
-    setMessages((prevMessages) => [...prevMessages, pendingMessage, LLMresponse]);
+  const handleConfirmedSend = async () => {
+
+    const userMessage = pendingMessage;
+    const llmResponse = await fetchResponseFromLLM(userMessage);
+    setMessages((prevMessages) => [...prevMessages, userMessage, llmResponse]);
+    setPendingMessage("");
+    setWarning("");
+  };
+  
+  const handleSelectAlternative = async () => {
+    const userMessage = alternative;
+    const llmResponse = await fetchResponseFromLLM(userMessage);
+    setMessages((prevMessages) => [...prevMessages, userMessage, llmResponse]);
     setPendingMessage("");
     setWarning("");
   };
@@ -248,18 +257,12 @@ const Chat: React.FC = () => {
     setInput(pendingMessage);
   };
 
-  const handleSelectAlternative = () => {
-    setMessages((prevMessages) => [...prevMessages, alternative, LLMresponse]);
-    setPendingMessage("");
-    setWarning("");
-  };
-  
   return (
     <ChatContainer>
       <MessageList>
         {messages.map((msg, index) => (
           <div key={index}>
-            {index % 2 === 0 ? ( // 짝수: 사용자 메시지, 홀수: LLM 응답
+            {index % 2 === 0 ? (
               <Message>{msg}</Message>
             ) : (
               <LLMResponseContainer>{msg}</LLMResponseContainer>
@@ -268,16 +271,7 @@ const Chat: React.FC = () => {
         ))}
       </MessageList>
       <InputContainer>
-        <InputRow>
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Type a message"
-          />
-          <SendButton onClick={handleInitialSend}>Send</SendButton>
-        </InputRow>
-        {warning && pendingMessage && (
+      {warning && pendingMessage && (
           <WarningContainer>
             <WarningMessage>
               {pendingMessage}
@@ -301,6 +295,15 @@ const Chat: React.FC = () => {
             </WarningActions>
           </WarningContainer>
         )}
+        <InputRow>
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="Type a message"
+          />
+          <SendButton onClick={handleInitialSend}>Send</SendButton>
+        </InputRow>
       </InputContainer>
       <NavigateButton onClick={() => navigate("/")}>Go to Rule</NavigateButton>
     </ChatContainer>
