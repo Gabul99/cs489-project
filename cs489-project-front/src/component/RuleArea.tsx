@@ -97,6 +97,70 @@ const RuleArea = () => {
     setRuleList(ruleList.filter((r) => r.id !== rule.id));
   };
 
+  const handleAddPresetRules = (presetType: string) => {
+    let newRules: Rule[] = [];
+  
+    if (presetType === "Preset 1") {
+      newRules = [
+        {
+          id: v4(),
+          rule: "Do not post photos/recipes of dishes containing meat",
+          example: "I grilled a beef steak for dinner tonight and it was so delicious!",
+        },
+        {
+          id: v4(),
+          rule: "Do not disparage the vegan lifestyle",
+          example: "I think vegan food is not good for the environment at all.",
+        },
+        {
+          id: v4(),
+          rule: "Respect the various forms of veganism.",
+          example: "You're vegan but you eat fish and eggs? I don't understand.",
+        },
+      ];
+    } else if (presetType === "Preset 2") {
+      newRules = [
+        {
+          id: v4(),
+          rule: "Do not criticize a specific movie as a whole. When criticizing a movie, you must mention a specific regrettable part.",
+          example: "Captain Marvel, which just came out, was total garbage. My 2 hours were a waste.",
+        },
+        {
+          id: v4(),
+          rule: "No spoilers for important parts of the movie",
+          example: "My favorite scene is when Iron Man takes Thanos's glove and snaps his fingers.",
+        },
+        {
+          id: v4(),
+          rule: "Respect the other person's taste",
+          example: "You like that movie? You have no taste for movies.",
+        },
+      ];
+    }
+
+    else if (presetType === "Preset 3") {
+      newRules = [
+        {
+          id: v4(),
+          rule: "No spoilers for twists in the game",
+          example: "The main character's colleague OOO turned out to be the final boss! It was shocking.",
+        },
+        {
+          id: v4(),
+          rule: "No excessive mentions of other games",
+          example: "Let's move on to another game. This game is so boring.",
+        },
+        {
+          id: v4(),
+          rule: "No criticism of teammates",
+          example: "You know we lost today's game because of you? Don't log in again.",
+        },
+      ];
+    }
+  
+    setRuleList((prev) => [...prev, ...newRules]);
+  };
+
   return (
     <Container>
       <Title>Rules</Title>
@@ -107,8 +171,9 @@ const RuleArea = () => {
       {ruleList.length === 0 && (
         <>
           <PresetTitle>Presets</PresetTitle>
-          <SuggestItem suggestion="Preset 1" onClick={() => {}} />
-          <SuggestItem suggestion="Preset 2" onClick={() => {}} />
+          <SuggestItem suggestion="🥗 Vegan cooking community" onClick={() => handleAddPresetRules("Preset 1")} />
+          <SuggestItem suggestion="🎞️ Movie chat room" onClick={() => handleAddPresetRules("Preset 2")} />
+          <SuggestItem suggestion="🎮 Game chat room" onClick={() => handleAddPresetRules("Preset 3")} />
           <Desc>... or start with your own rules with below button!</Desc>
         </>
       )}
