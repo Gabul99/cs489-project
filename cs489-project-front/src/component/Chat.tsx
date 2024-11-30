@@ -5,6 +5,7 @@ import LLMRequestManager from "../network/LLMRequestManager";
 import { TextBlock } from "@anthropic-ai/sdk/resources";
 import { useRecoilValue } from "recoil";
 import { ruleListAtom } from "../store/ruleStore";
+import { CircularProgress } from "@mui/material";
 
 const ChatContainer = styled.div`
   width: 100vw;
@@ -40,20 +41,19 @@ const Message = styled.div`
   word-break: break-word;
   max-width: 70%;
   margin-left: auto;
-
 `;
 
 const LLMResponseContainer = styled.div`
   align-self: flex-end;
   margin: 8px 0;
   padding: 8px 12px;
-  background-color: #007bff;
-  color: white;
+  background-color: white;
+  border: 1px solid #007bff;
+  color: black;
   border-radius: 8px;
   word-break: break-word;
   max-width: 70%;
   margin-right: auto;
-
 `;
 
 const InputContainer = styled.div`
@@ -165,15 +165,20 @@ const Chat: React.FC = () => {
   const [warning, setWarning] = useState<string>("");
   const [pendingMessage, setPendingMessage] = useState<string>("");
   const [alternative, setAlternative] = useState<string>("");
+  const [initialProcessing, setInitialProcessing] = useState<boolean>(false);
+  const [secondaryProcessing, setSecondaryProcessing] =
+    useState<boolean>(false);
   const navigate = useNavigate();
   const ruleList = useRecoilValue(ruleListAtom);
-  const rulesPrompt = ruleList.length > 0 
-  ? `Specific guidelines to check:\n${ruleList.map((rule, index) => `${index + 1}. ${rule.rule || rule.example}`).join('\n')}\n\n`
-  : '';
+  const rulesPrompt =
+    ruleList.length > 0
+      ? `Specific guidelines to check:\n${ruleList
+          .map((rule, index) => `${index + 1}. ${rule.rule || rule.example}`)
+          .join("\n")}\n\n`
+      : "";
 
   const fetchWarningFromLLM = async (message: string) => {
     try {
-       
       const response = await LLMRequestManager.shared.requestAnthropicAPI(
         `You are a text evaluator. ${rulesPrompt}Provide warnings if the following message violates any of the above guidelines. If the content doesn't break any rules, just say None.`,
         message,
@@ -190,7 +195,6 @@ const Chat: React.FC = () => {
 
   const fetchAlternativeFromLLM = async (message: string) => {
     try {
-
       const response = await LLMRequestManager.shared.requestAnthropicAPI(
         `${rulesPrompt} You are responsible for editing the user's message. Edit the user's message so that it conforms to the guidelines. Don't leave any other comments, just print the modified message. If the content does not violate the rules, just present the original text.`,
         message,
@@ -212,17 +216,22 @@ const Chat: React.FC = () => {
         0.1
       );
       const text = (response?.content[0] as TextBlock).text;
-      return text
+      return text;
     } catch (error) {
       console.error("Error with Claude API:", error);
-      return "Error: Could not fetch response."
+      return "Error: Could not fetch response.";
     }
   };
 
   const handleInitialSend = async () => {
     if (input.trim()) {
-      await fetchWarningFromLLM(input.trim());
-      await fetchAlternativeFromLLM(input.trim());
+      try {
+        setInitialProcessing(true);
+        await fetchWarningFromLLM(input.trim());
+        await fetchAlternativeFromLLM(input.trim());
+      } finally {
+        setInitialProcessing(false);
+      }
       setPendingMessage(input.trim());
       setInput("");
     }
@@ -235,18 +244,21 @@ const Chat: React.FC = () => {
   };
 
   const handleConfirmedSend = async () => {
-
     const userMessage = pendingMessage;
+    setSecondaryProcessing(true);
     const llmResponse = await fetchResponseFromLLM(userMessage);
     setMessages((prevMessages) => [...prevMessages, userMessage, llmResponse]);
+    setSecondaryProcessing(false);
     setPendingMessage("");
     setWarning("");
   };
-  
+
   const handleSelectAlternative = async () => {
     const userMessage = alternative;
+    setSecondaryProcessing(true);
     const llmResponse = await fetchResponseFromLLM(userMessage);
     setMessages((prevMessages) => [...prevMessages, userMessage, llmResponse]);
+    setSecondaryProcessing(false);
     setPendingMessage("");
     setWarning("");
   };
@@ -271,7 +283,7 @@ const Chat: React.FC = () => {
         ))}
       </MessageList>
       <InputContainer>
-      {warning && pendingMessage && (
+        {warning && pendingMessage && (
           <WarningContainer>
             <WarningMessage>
               {pendingMessage}
@@ -282,17 +294,19 @@ const Chat: React.FC = () => {
               {"Alternative: "}
               {alternative}
             </WarningMessage>
-            <WarningActions>
-              <ConfirmButton onClick={handleConfirmedSend}>
-                Send Anyway
-              </ConfirmButton>
-              <AlternativeButton onClick={handleSelectAlternative}>
-                Select Alternative
-              </AlternativeButton>
-              <CancelButton onClick={handleCancelSend}>
-                Cancel
-              </CancelButton>
-            </WarningActions>
+            {secondaryProcessing ? (
+              <CircularProgress size={24} />
+            ) : (
+              <WarningActions>
+                <ConfirmButton onClick={handleConfirmedSend}>
+                  Send Anyway
+                </ConfirmButton>
+                <AlternativeButton onClick={handleSelectAlternative}>
+                  Select Alternative
+                </AlternativeButton>
+                <CancelButton onClick={handleCancelSend}>Cancel</CancelButton>
+              </WarningActions>
+            )}
           </WarningContainer>
         )}
         <InputRow>
@@ -302,7 +316,11 @@ const Chat: React.FC = () => {
             onKeyPress={handleKeyPress}
             placeholder="Type a message"
           />
-          <SendButton onClick={handleInitialSend}>Send</SendButton>
+          {initialProcessing ? (
+            <CircularProgress size={24} />
+          ) : (
+            <SendButton onClick={handleInitialSend}>Send</SendButton>
+          )}
         </InputRow>
       </InputContainer>
       <NavigateButton onClick={() => navigate("/")}>Go to Rule</NavigateButton>

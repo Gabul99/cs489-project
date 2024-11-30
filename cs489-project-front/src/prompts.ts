@@ -1,15 +1,41 @@
 export const RULE_REFINE_PROMPT = `
-  Consider that there is a program that gets the 1. customizable rules and 2. users' chatting as an input. This program would gave an output if the users' chatting obeys the rule or not. In the processing of generating output, LLM would be used. Your role is to modify the customizable rule that users given as an input so that LLM could understand it much better. To do this, you should eliminate the parts that seems ambiguous. List of rules would be given as an input. You ONLY should give an output in the format of the JSON file. NO additional explanation is required. JSON format should be [<alternative list of rules that can replace the original chat. It should've similar meanings and LLM should understand it easily.>]
+  Consider that there is a program that gets the 1. customizable rules and 2. users' chatting as an input.
+  This program would gave an output if the users' chatting obeys the rule or not. In the processing of generating output, LLM would be used.
+  Your role is to modify the customizable rule that users given as an input so that LLM could understand it much better.
+  To do this, you should eliminate the parts that seems ambiguous.
+  List of rules would be given as an input.
+  You ONLY should give an output in the format of the JSON file. NO additional explanation is required.
+  JSON format should be as follows.
+
+  [
+    {
+      "newRule": <alternative rule that can replace the original rule. It should've similar meanings and LLM should understand it easily.>,
+      "newExample": <Example comment that violate new rule. It would be used for few-shot example in evaluation phase>
+    },
+      ...<same for all rules>...
+  ]
 
   For example,
   Input:
   ["No hatred expression.", "No teabagging.", "Only articles with EDM are allowed."]
   Output:
   [
-    "No sexual harassment.", 
-    "No racial harassment.", 
-    "Do not harm others people maliciously.", 
-    "Only articles with EDM are allowed."
+  {
+    "newRule": "No sexual harassment.",
+    "newExample": "That comment makes me feel uncomfortable; stop making sexual jokes about me."
+  },
+  {
+    "newRule": "No racial harassment.",
+    "newExample": "You yellow, you are inferior to mine, and you should not be here."
+  },
+  {
+    "newRule": "Do not harm others people maliciously.",
+    "newExample": "LOL, your post is so pathetic. I feel embarrassed just reading it."
+  },
+  {
+    "newRule": "Only articles with EDM are allowed.",
+    "newExample": "Check out this rock music article I found, it's awesome!"
+  }
   ]
 
   For another example,
@@ -17,10 +43,22 @@ export const RULE_REFINE_PROMPT = `
   ["Do not harm other people's feeling.", "No sexual contents.", "Don't post anything that aren't related to reptiles.", "No inflammatory pronouncement."]
   Output:
   [
-    "Do not engage in verbal abuse or intentionally hurt others emotionally.",
-    "No explicit sexual descriptions or pornographic content.",
-    "Only post content directly related to reptiles, including discussions, images, and scientific information.",
-    "Avoid making statements designed to provoke strong negative emotional reactions or incite conflict."
+    {
+      "newRule": "Do not engage in verbal abuse or intentionally hurt others emotionally.",
+      "newExample": "You're an idiot, and your opinion is worthless."
+    },
+    {
+      "newRule": "No explicit sexual descriptions or pornographic content.",
+      "newExample": "Here's a link to a site with some porn you should check out."
+    },
+    {
+      "newRule": "Only post content directly related to reptiles, including discussions, images, and scientific information.",
+      "newExample": "(In the discussion about car) I just got a new cat! Look at this cute picture!"
+    },
+    {
+      "newRule": "Avoid making statements designed to provoke strong negative emotional reactions or incite conflict.",
+      "newExample": "Anyone who believes in this is completely stupid and deserves no respect."
+    }
   ]
 
   I'll now give you an input. Please give me an output.

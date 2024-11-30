@@ -83,11 +83,11 @@ const RuleArea = () => {
     const content = response?.content[0] as TextBlock;
     setLoading(false);
     if (!content) return;
-    const newRules = JSON.parse(`${content.text}`).map((t: string) => {
+    const newRules = JSON.parse(`${content.text}`).map((t: any) => {
       return {
-        id: t,
-        rule: t,
-        example: "",
+        id: t.newRule,
+        rule: t.newRule,
+        example: t.newExample,
       };
     });
     setRuleList(newRules);
@@ -99,13 +99,14 @@ const RuleArea = () => {
 
   const handleAddPresetRules = (presetType: string) => {
     let newRules: Rule[] = [];
-  
+
     if (presetType === "Preset 1") {
       newRules = [
         {
           id: v4(),
           rule: "Do not post photos/recipes of dishes containing meat",
-          example: "I grilled a beef steak for dinner tonight and it was so delicious!",
+          example:
+            "I grilled a beef steak for dinner tonight and it was so delicious!",
         },
         {
           id: v4(),
@@ -115,7 +116,8 @@ const RuleArea = () => {
         {
           id: v4(),
           rule: "Respect the various forms of veganism.",
-          example: "You're vegan but you eat fish and eggs? I don't understand.",
+          example:
+            "You're vegan but you eat fish and eggs? I don't understand.",
         },
       ];
     } else if (presetType === "Preset 2") {
@@ -123,12 +125,14 @@ const RuleArea = () => {
         {
           id: v4(),
           rule: "Do not criticize a specific movie as a whole. When criticizing a movie, you must mention a specific regrettable part.",
-          example: "Captain Marvel, which just came out, was total garbage. My 2 hours were a waste.",
+          example:
+            "Captain Marvel, which just came out, was total garbage. My 2 hours were a waste.",
         },
         {
           id: v4(),
           rule: "No spoilers for important parts of the movie",
-          example: "My favorite scene is when Iron Man takes Thanos's glove and snaps his fingers.",
+          example:
+            "My favorite scene is when Iron Man takes Thanos's glove and snaps his fingers.",
         },
         {
           id: v4(),
@@ -136,14 +140,13 @@ const RuleArea = () => {
           example: "You like that movie? You have no taste for movies.",
         },
       ];
-    }
-
-    else if (presetType === "Preset 3") {
+    } else if (presetType === "Preset 3") {
       newRules = [
         {
           id: v4(),
           rule: "No spoilers for twists in the game",
-          example: "The main character's colleague OOO turned out to be the final boss! It was shocking.",
+          example:
+            "The main character's colleague OOO turned out to be the final boss! It was shocking.",
         },
         {
           id: v4(),
@@ -153,11 +156,12 @@ const RuleArea = () => {
         {
           id: v4(),
           rule: "No criticism of teammates",
-          example: "You know we lost today's game because of you? Don't log in again.",
+          example:
+            "You know we lost today's game because of you? Don't log in again.",
         },
       ];
     }
-  
+
     setRuleList((prev) => [...prev, ...newRules]);
   };
 
@@ -171,9 +175,18 @@ const RuleArea = () => {
       {ruleList.length === 0 && (
         <>
           <PresetTitle>Presets</PresetTitle>
-          <SuggestItem suggestion="🥗 Vegan cooking community" onClick={() => handleAddPresetRules("Preset 1")} />
-          <SuggestItem suggestion="🎞️ Movie chat room" onClick={() => handleAddPresetRules("Preset 2")} />
-          <SuggestItem suggestion="🎮 Game chat room" onClick={() => handleAddPresetRules("Preset 3")} />
+          <SuggestItem
+            suggestion="🥗 Vegan cooking community"
+            onClick={() => handleAddPresetRules("Preset 1")}
+          />
+          <SuggestItem
+            suggestion="🎞️ Movie chat room"
+            onClick={() => handleAddPresetRules("Preset 2")}
+          />
+          <SuggestItem
+            suggestion="🎮 Game chat room"
+            onClick={() => handleAddPresetRules("Preset 3")}
+          />
           <Desc>... or start with your own rules with below button!</Desc>
         </>
       )}
