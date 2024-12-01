@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState , useEffect} from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import LLMRequestManager from "../network/LLMRequestManager";
@@ -6,6 +6,8 @@ import { TextBlock } from "@anthropic-ai/sdk/resources";
 import { useRecoilValue } from "recoil";
 import { ruleListAtom } from "../store/ruleStore";
 import { CircularProgress } from "@mui/material";
+import { RULE_EVALUATE_SUGGEST_PROMPT } from "../prompts";
+import { Evaluation } from "../model/Evaluation";
 
 const ChatContainer = styled.div`
   width: 100vw;
@@ -159,54 +161,18 @@ const NavigateButton = styled.button`
   }
 `;
 
+
 const Chat: React.FC = () => {
   const [messages, setMessages] = useState<string[]>([]);
   const [input, setInput] = useState<string>("");
-  const [warning, setWarning] = useState<string>("");
+  const [feedback, setFeedback] = useState<string>("");
   const [pendingMessage, setPendingMessage] = useState<string>("");
-  const [alternative, setAlternative] = useState<string>("");
+  const [suggestions, setSuggestions] = useState<string>("");
+  const [good, setGood] = useState<boolean>(false);
   const [initialProcessing, setInitialProcessing] = useState<boolean>(false);
-  const [secondaryProcessing, setSecondaryProcessing] =
-    useState<boolean>(false);
+  const [secondaryProcessing, setSecondaryProcessing] = useState<boolean>(false);
   const navigate = useNavigate();
   const ruleList = useRecoilValue(ruleListAtom);
-  const rulesPrompt =
-    ruleList.length > 0
-      ? `Specific guidelines to check:\n${ruleList
-          .map((rule, index) => `${index + 1}. ${rule.rule || rule.example}`)
-          .join("\n")}\n\n`
-      : "";
-
-  const fetchWarningFromLLM = async (message: string) => {
-    try {
-      const response = await LLMRequestManager.shared.requestAnthropicAPI(
-        `You are a text evaluator. ${rulesPrompt}Provide warnings if the following message violates any of the above guidelines. If the content doesn't break any rules, just say None.`,
-        message,
-        0.1
-      );
-
-      const text = (response?.content[0] as TextBlock).text;
-      setWarning(text);
-    } catch (error) {
-      console.error("Error with Claude API:", error);
-      setWarning("Error: Could not fetch response.");
-    }
-  };
-
-  const fetchAlternativeFromLLM = async (message: string) => {
-    try {
-      const response = await LLMRequestManager.shared.requestAnthropicAPI(
-        `${rulesPrompt} You are responsible for editing the user's message. Edit the user's message so that it conforms to the guidelines. Don't leave any other comments, just print the modified message. If the content does not violate the rules, just present the original text.`,
-        message,
-        0.1
-      );
-      const text = (response?.content[0] as TextBlock).text;
-      setAlternative(text);
-    } catch (error) {
-      console.error("Error with Claude API:", error);
-      setAlternative("Error: Could not fetch response.");
-    }
-  };
 
   const fetchResponseFromLLM = async (message: string) => {
     try {
@@ -223,16 +189,47 @@ const Chat: React.FC = () => {
     }
   };
 
+  const fetchFeedback = async (message: string) => {
+    const userPrompt = `Rules:\n${ruleList
+      .map(
+        (rule, index) =>
+          `${index + 1}. ${rule.rule} ${
+            rule.example !== "" ? `Example: ${rule.example}` : ""
+          }`
+      )
+      .join("\n")}\n\n Input:\n${message}`;
+
+    try {
+      const response = await LLMRequestManager.shared.requestAnthropicAPI(
+        RULE_EVALUATE_SUGGEST_PROMPT,
+        userPrompt,
+        0.1
+      );
+      const text = (response?.content[0] as TextBlock).text;
+      const evaluation: Evaluation = JSON.parse(text);
+      if (evaluation.reason !== "") {
+        setFeedback(evaluation.reason);
+        setSuggestions(evaluation.suggestions[0]);
+        setGood(false);
+      } else {
+        setGood(true);
+      }
+    } catch (error) {
+      console.error("Error with API:", error);
+      setFeedback("Error: Could not fetch response.");
+      setGood(false);
+    }
+  };
+
   const handleInitialSend = async () => {
     if (input.trim()) {
       try {
         setInitialProcessing(true);
-        await fetchWarningFromLLM(input.trim());
-        await fetchAlternativeFromLLM(input.trim());
+        await fetchFeedback(input.trim());
+        setPendingMessage(input.trim());
       } finally {
         setInitialProcessing(false);
       }
-      setPendingMessage(input.trim());
       setInput("");
     }
   };
@@ -243,29 +240,32 @@ const Chat: React.FC = () => {
     }
   };
 
-  const handleConfirmedSend = async () => {
-    const userMessage = pendingMessage;
+  const handleConfirmedSend = async (message: string) => {
+
     setSecondaryProcessing(true);
-    const llmResponse = await fetchResponseFromLLM(userMessage);
-    setMessages((prevMessages) => [...prevMessages, userMessage, llmResponse]);
+    const llmResponse = await fetchResponseFromLLM(message);
+    setMessages((prevMessages) => [...prevMessages, message, llmResponse]);
     setSecondaryProcessing(false);
+    
     setPendingMessage("");
-    setWarning("");
+    setFeedback("");
+    setGood(false);
   };
 
+  useEffect(() => {
+    if (good && pendingMessage) {
+      handleConfirmedSend(pendingMessage);
+    }
+  }, [good, pendingMessage]);
+
   const handleSelectAlternative = async () => {
-    const userMessage = alternative;
-    setSecondaryProcessing(true);
-    const llmResponse = await fetchResponseFromLLM(userMessage);
-    setMessages((prevMessages) => [...prevMessages, userMessage, llmResponse]);
-    setSecondaryProcessing(false);
-    setPendingMessage("");
-    setWarning("");
+    const userMessage = suggestions;
+    handleConfirmedSend(userMessage);
   };
 
   const handleCancelSend = () => {
     setPendingMessage("");
-    setWarning("");
+    setFeedback("");
     setInput(pendingMessage);
   };
 
@@ -283,22 +283,22 @@ const Chat: React.FC = () => {
         ))}
       </MessageList>
       <InputContainer>
-        {warning && pendingMessage && (
+        {feedback && !good && pendingMessage && (
           <WarningContainer>
             <WarningMessage>
               {pendingMessage}
               <br />
               {"Warning: "}
-              {warning}
+              {feedback}
               <br />
               {"Alternative: "}
-              {alternative}
+              {suggestions}
             </WarningMessage>
             {secondaryProcessing ? (
               <CircularProgress size={24} />
             ) : (
               <WarningActions>
-                <ConfirmButton onClick={handleConfirmedSend}>
+                <ConfirmButton onClick={() => handleConfirmedSend(pendingMessage)}>
                   Send Anyway
                 </ConfirmButton>
                 <AlternativeButton onClick={handleSelectAlternative}>
@@ -316,7 +316,7 @@ const Chat: React.FC = () => {
             onKeyPress={handleKeyPress}
             placeholder="Type a message"
           />
-          {initialProcessing ? (
+          {initialProcessing || secondaryProcessing? (
             <CircularProgress size={24} />
           ) : (
             <SendButton onClick={handleInitialSend}>Send</SendButton>
