@@ -175,10 +175,18 @@ const Chat: React.FC = () => {
   const ruleList = useRecoilValue(ruleListAtom);
 
   const fetchResponseFromLLM = async (message: string) => {
+    const userPrompt = `Rules:\n${ruleList
+      .map(
+        (rule, index) =>
+          `${index + 1}. ${rule.rule} ${
+            rule.example !== "" ? `Example: ${rule.example}` : ""
+          }`
+      )
+      .join("\n")}\n\n Input:\n${message}`;
     try {
       const response = await LLMRequestManager.shared.requestAnthropicAPI(
-        "You are an assistant. Respond thoughtfully to the following message.",
-        message,
+        "You are chatting based on rules that users have set. Users want to verify that the rules they have set work as intended. You need to lead the conversation so that users can test the rules. Considering the chat situation, don't talk too long.Look at the rules and elicit responses from users with related topics. Considering the chat situation, don't talk too long. The rules and user's input message are as follows:",
+        userPrompt,
         0.1
       );
       const text = (response?.content[0] as TextBlock).text;
